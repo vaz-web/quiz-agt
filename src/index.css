@@ -1,0 +1,88 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700;800&family=Sora:wght@400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 220 35% 6%;
+    --foreground: 215 20% 96%;
+
+    --card: 220 28% 10%;
+    --card-foreground: 215 20% 96%;
+
+    --popover: 220 28% 10%;
+    --popover-foreground: 215 20% 96%;
+
+    --primary: 217 72% 50%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 220 22% 14%;
+    --secondary-foreground: 215 20% 96%;
+
+    --muted: 220 18% 13%;
+    --muted-foreground: 215 12% 58%;
+
+    --accent: 28 90% 55%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 215 20% 96%;
+
+    --border: 220 18% 17%;
+    --input: 220 18% 17%;
+    --ring: 217 72% 50%;
+
+    --radius: 0.75rem;
+
+    --sidebar-background: 220 35% 6%;
+    --sidebar-foreground: 215 20% 96%;
+    --sidebar-primary: 217 72% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 22% 14%;
+    --sidebar-accent-foreground: 215 20% 96%;
+    --sidebar-border: 220 18% 17%;
+    --sidebar-ring: 217 72% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: 'Sora', sans-serif;
+  }
+}
+
+@layer utilities {
+  .gradient-bg {
+    background: linear-gradient(180deg, hsl(220 35% 6%) 0%, hsl(220 22% 11%) 100%);
+  }
+  
+  .gradient-gold {
+    background: linear-gradient(135deg, hsl(28 90% 55%) 0%, hsl(0 72% 51%) 100%);
+  }
+
+  .glass-card {
+    background: hsl(220 28% 8% / 0.75);
+    backdrop-filter: blur(16px);
+    border: 1px solid hsl(220 18% 20% / 0.4);
+  }
+}
+
+/* Red pulse glow for AGT-branded CTA buttons */
+@keyframes pulse-glow-red {
+  0%, 100% { box-shadow: 0 0 20px -5px rgba(224, 32, 32, 0.3); }
+  50% { box-shadow: 0 0 40px -5px rgba(224, 32, 32, 0.55); }
+}
+.animate-pulse-glow-red {
+  animation: pulse-glow-red 2s ease-in-out infinite;
+}
