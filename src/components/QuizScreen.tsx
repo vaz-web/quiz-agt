@@ -154,7 +154,7 @@ export default function QuizScreen({ onComplete }: Props) {
             {current > 0 && (
               <button
                 onClick={handleBack}
-                className="flex items-center gap-0.5 text-muted-foreground/70 hover:text-accent transition-colors text-xs rounded-lg px-2 py-1 -ml-2 hover:bg-accent/5 active:bg-accent/10"
+                className="flex items-center gap-0.5 text-muted-foreground/70 hover:text-accent transition-colors text-xs rounded-lg px-3 py-2 -ml-3 hover:bg-accent/5 active:bg-accent/10"
               >
                 <ChevronLeft className="h-4 w-4" />
                 Voltar

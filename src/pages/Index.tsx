@@ -162,7 +162,7 @@ const Index = () => {
       <div
         className="fixed inset-0 bg-cover bg-center bg-no-repeat"
         style={{
-          backgroundImage: "url('/images/bg-trading.png')",
+          backgroundImage: "url('/images/bg-trading.webp')",
           filter: "blur(3px)",
         }}
       />

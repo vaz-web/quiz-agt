@@ -49,20 +49,39 @@ const profileColors: Record<ProfileType, { ring: string; glow: string; accent: s
 };
 
 /* ── Animated circular gauge ────────────────────────────── */
+function useCountUp(target: number, duration = 1200, delay = 300) {
+  const [val, setVal] = useState(0);
+  useEffect(() => {
+    const start = performance.now() + delay;
+    let raf: number;
+    const tick = (now: number) => {
+      const elapsed = now - start;
+      if (elapsed < 0) { raf = requestAnimationFrame(tick); return; }
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3); // ease-out cubic
+      setVal(Math.round(eased * target));
+      if (progress < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [target, duration, delay]);
+  return val;
+}
+
 function CircleGauge({ value, max, label, color }: { value: number; max: number; label: string; color: string }) {
-  const [animated, setAnimated] = useState(0);
   const pct = Math.round((value / max) * 100);
+  const animated = useCountUp(pct, 1200, 400);
   const radius = 40;
   const circ = 2 * Math.PI * radius;
 
-  useEffect(() => {
-    const t = setTimeout(() => setAnimated(pct), 200);
-    return () => clearTimeout(t);
-  }, [pct]);
-
   return (
     <div className="flex flex-col items-center gap-2">
-      <div className="relative w-24 h-24">
+      <motion.div
+        className="relative w-24 h-24"
+        initial={{ scale: 0.6, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ type: "spring", stiffness: 200, damping: 15, delay: 0.2 }}
+      >
         <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
           <circle cx="50" cy="50" r={radius} fill="none" stroke="hsl(var(--secondary))" strokeWidth="8" />
           <circle
@@ -75,13 +94,13 @@ function CircleGauge({ value, max, label, color }: { value: number; max: number;
             strokeLinecap="round"
             strokeDasharray={circ}
             strokeDashoffset={circ - (circ * animated) / 100}
-            className="transition-all duration-1000 ease-out"
+            style={{ filter: `drop-shadow(0 0 3px ${color}88)` }}
           />
         </svg>
         <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-lg font-bold">{animated}%</span>
+          <span className="text-lg font-bold tabular-nums">{animated}%</span>
         </div>
-      </div>
+      </motion.div>
       <span className="text-xs text-muted-foreground text-center leading-tight">{label}</span>
     </div>
   );
@@ -90,23 +109,26 @@ function CircleGauge({ value, max, label, color }: { value: number; max: number;
 /* ── Score meter (horizontal) ───────────────────────────── */
 function ScoreMeter({ label, value, maxLabel, color }: { label: string; value: number; maxLabel: string; color: string }) {
   const [show, setShow] = useState(false);
+
   useEffect(() => {
-    const t = setTimeout(() => setShow(true), 400);
+    const t = setTimeout(() => setShow(true), 600);
     return () => clearTimeout(t);
   }, []);
 
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-2">
       <div className="flex justify-between text-xs">
         <span className="text-muted-foreground">{label}</span>
         <span className="font-semibold" style={{ color }}>{maxLabel}</span>
       </div>
       <div className="h-3 bg-white/10 rounded-full overflow-hidden">
         <div
-          className="h-full rounded-full transition-all duration-1000 ease-out"
+          className="h-full rounded-full"
           style={{
             width: show ? `${value}%` : "0%",
             background: `linear-gradient(90deg, ${color}88, ${color})`,
+            boxShadow: `0 0 10px ${color}55`,
+            transition: "width 1s cubic-bezier(0.25, 0.46, 0.45, 0.94)",
           }}
         />
       </div>
@@ -124,32 +146,56 @@ function PatrimonioScale({ answer }: { answer: string }) {
     { label: "> R$ 1M", active: answer === "E" },
   ];
 
+  const activeIndex = ["A", "B", "C", "D", "E"].indexOf(answer);
   const posMap: Record<string, string> = { A: "10%", B: "30%", C: "50%", D: "70%", E: "90%" };
 
   return (
     <div className="relative">
       <div className="flex items-center justify-between mb-2">
         {levels.map((l, i) => (
-          <div key={i} className="flex flex-col items-center gap-1 flex-1">
-            <div
-              className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold transition-all duration-500 ${
+          <motion.div
+            key={i}
+            className="flex flex-col items-center gap-1 flex-1"
+            initial={{ scale: 0, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{
+              type: "spring",
+              stiffness: 300,
+              damping: 15,
+              delay: 0.15 * i,
+            }}
+          >
+            <motion.div
+              className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold ${
                 l.active
-                  ? "bg-accent text-accent-foreground scale-125 shadow-lg shadow-accent/40"
+                  ? "bg-accent text-accent-foreground"
                   : "bg-white/10 text-muted-foreground"
               }`}
+              animate={l.active ? {
+                scale: [1, 1.25, 1.1],
+                boxShadow: [
+                  "0 0 0px hsla(28,90%,55%,0)",
+                  "0 0 14px hsla(28,90%,55%,0.4)",
+                  "0 0 8px hsla(28,90%,55%,0.25)",
+                ],
+              } : {}}
+              transition={l.active ? { delay: 0.15 * i + 0.2, duration: 0.5 } : {}}
             >
               {i + 1}
-            </div>
+            </motion.div>
             <span className={`text-[10px] sm:text-xs text-center leading-tight ${l.active ? "text-accent font-semibold" : "text-muted-foreground"}`}>
               {l.label}
             </span>
-          </div>
+          </motion.div>
         ))}
       </div>
-      <div className="h-1 bg-secondary/30 rounded-full mx-4">
-        <div
-          className="h-full bg-accent rounded-full transition-all duration-700"
-          style={{ width: posMap[answer] || "10%" }}
+      <div className="h-1.5 bg-white/5 rounded-full mx-4 overflow-hidden">
+        <motion.div
+          className="h-full bg-accent rounded-full"
+          style={{ boxShadow: "0 0 8px hsla(28,90%,55%,0.4)" }}
+          initial={{ width: "0%" }}
+          animate={{ width: posMap[answer] || "10%" }}
+          transition={{ delay: 0.6, duration: 0.8, ease: [0.25, 0.46, 0.45, 0.94] }}
         />
       </div>
     </div>
