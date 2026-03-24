@@ -9,8 +9,8 @@ interface Props {
 }
 
 /**
- * Inline banner that appears between quiz questions when a bonus is unlocked.
- * Auto-dismisses after 2s. Non-blocking — the quiz flow continues automatically.
+ * Toast overlay that appears when a bonus is unlocked.
+ * Auto-dismisses after 1.5s. Non-blocking — quiz continues underneath.
  */
 export default function BonusUnlockBanner({ bonusId, onDone }: Props) {
   const [visible, setVisible] = useState(true);
@@ -19,8 +19,8 @@ export default function BonusUnlockBanner({ bonusId, onDone }: Props) {
   useEffect(() => {
     const t = setTimeout(() => {
       setVisible(false);
-      setTimeout(onDone, 300); // wait for exit animation
-    }, 2000);
+      setTimeout(onDone, 250); // wait for exit animation
+    }, 1500);
     return () => clearTimeout(t);
   }, [onDone]);
 
@@ -81,14 +81,14 @@ export default function BonusUnlockBanner({ bonusId, onDone }: Props) {
               </motion.div>
             </div>
 
-            {/* Progress bar that drains over 2s */}
+            {/* Progress bar that drains over 1.5s */}
             <div className="mt-3 h-1 rounded-full bg-white/10 overflow-hidden">
               <motion.div
                 className={`h-full rounded-full`}
                 style={{ background: meta.tierColor }}
                 initial={{ width: "100%" }}
                 animate={{ width: "0%" }}
-                transition={{ duration: 2, ease: "linear" }}
+                transition={{ duration: 1.5, ease: "linear" }}
               />
             </div>
           </div>

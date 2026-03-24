@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { questions } from "@/data/quizData";
 import { calculateBonuses } from "@/data/bonusSystem";
@@ -31,6 +31,12 @@ function AnimatedCheck() {
     </svg>
   );
 }
+
+/* ── Stagger timing constants ───────────────────────────── */
+const STAGGER_BASE_DELAY = 0.4;   // seconds before first option appears
+const STAGGER_INTERVAL = 0.12;    // seconds between each option
+const STAGGER_BACK_DELAY = 0;     // no delay when going back
+const STAGGER_BACK_INTERVAL = 0.04; // fast stagger when going back
 
 /* ════════════════════════════════════════════════════════════ */
 
@@ -75,15 +81,15 @@ export default function QuizScreen({ onComplete }: Props) {
 
   const q = questions[current];
   const isMulti = q.multiSelect === true;
-  // Quiz ocupa 0-80% da barra. Lead capture será ~90%, resultado 100%.
-  // Isso evita que a pessoa ache que "acabou" ao ver 100% na última pergunta.
   const linear = (current + 1) / questions.length;
   const progress = Math.round(Math.pow(linear, 0.6) * 80);
 
-  // Milestone = perguntas nos índices 5 e 8
   const isMilestone = current === 5 || current === 8;
 
-  // Curiosity hooks
+  // Stagger timing based on direction
+  const baseDelay = direction === -1 ? STAGGER_BACK_DELAY : STAGGER_BASE_DELAY;
+  const staggerInterval = direction === -1 ? STAGGER_BACK_INTERVAL : STAGGER_INTERVAL;
+
   const progressHint =
     current === 0 ? "Vamos montar seu perfil..." :
     current <= 2 ? "Padrão identificado. Continue..." :
@@ -92,9 +98,15 @@ export default function QuizScreen({ onComplete }: Props) {
     current <= 8 ? "Quase lá — falta pouco pro diagnóstico completo." :
     "Última pergunta. Seu resultado está quase pronto.";
 
+  const doAdvance = useCallback(() => {
+    setDirection(1);
+    setCurrent((c) => c + 1);
+    setSelected(null);
+    setMultiSelected(new Set());
+  }, []);
+
   const advance = (newAnswers: Record<number, string>) => {
     if (current === questions.length - 1) {
-      // Clear save state on completion
       try {
         localStorage.removeItem("quiz_progress_index");
         localStorage.removeItem("quiz_progress_answers");
@@ -103,39 +115,24 @@ export default function QuizScreen({ onComplete }: Props) {
       return;
     }
 
-    // Check for bonus unlocks at transition points (index 6 = after renda, index 7 = after tempo)
-    // Bonus 1 shows after index 6, Bonus 2 shows after index 7
+    // Check for bonus unlocks at transition points
+    // Bonus 1 shows after index 6 (renda), Bonus 2 shows after index 7 (tempo)
+    // Now non-blocking: advance immediately, show banner as toast overlay
     if (current === 6 || current === 7) {
       const currentBonuses = calculateBonuses(newAnswers);
       const newBonus = currentBonuses.find((b) => !shownBonuses.has(b));
       if (newBonus) {
         setShownBonuses((prev) => new Set([...prev, newBonus]));
         setActiveBonusBanner(newBonus);
-        // Don't advance yet — banner will call advance via onDone
-        // Store pending advance state
-        setPendingAdvance(true);
-        return;
+        // DON'T block — advance immediately, banner is just a toast
       }
     }
 
     doAdvance();
   };
 
-  const [pendingAdvance, setPendingAdvance] = useState(false);
-
-  const doAdvance = () => {
-    setDirection(1);
-    setCurrent((c) => c + 1);
-    setSelected(null);
-    setMultiSelected(new Set());
-  };
-
   const handleBonusDone = () => {
     setActiveBonusBanner(null);
-    if (pendingAdvance) {
-      setPendingAdvance(false);
-      doAdvance();
-    }
   };
 
   const handleSelect = (value: string) => {
@@ -217,7 +214,7 @@ export default function QuizScreen({ onComplete }: Props) {
         <AGTLogo className="mx-auto opacity-60" />
       </div>
 
-      {/* Resume prompt — asks if user wants to continue from where they left off */}
+      {/* Resume prompt */}
       <AnimatePresence>
         {showResume && (
           <motion.div
@@ -268,7 +265,7 @@ export default function QuizScreen({ onComplete }: Props) {
             {current > 0 && (
               <button
                 onClick={handleBack}
-                className="flex items-center gap-0.5 text-muted-foreground/70 hover:text-accent transition-colors text-xs rounded-lg px-3 py-2 -ml-3 hover:bg-accent/5 active:bg-accent/10"
+                className="flex items-center gap-0.5 text-muted-foreground/70 hover:text-accent transition-colors text-xs rounded-lg px-3 py-2.5 -ml-3 hover:bg-accent/5 active:bg-accent/10"
               >
                 <ChevronLeft className="h-4 w-4" />
                 Voltar
@@ -276,10 +273,8 @@ export default function QuizScreen({ onComplete }: Props) {
             )}
             <span>Pergunta {current + 1} de {questions.length}</span>
           </div>
-          {/* Percentual removido — evita que a pessoa calcule mentalmente e ache que acabou */}
         </div>
         <Progress value={progress} className="h-2.5 bg-white/[0.06] rounded-full shadow-inner" />
-        {/* Curiosity hook */}
         <AnimatePresence mode="wait">
           <motion.p
             key={progressHint}
@@ -307,15 +302,12 @@ export default function QuizScreen({ onComplete }: Props) {
               exit={{ opacity: 0 }}
               transition={{ duration: 0.12 }}
             >
-              {/* Flash pulse — tela toda */}
               <motion.div
                 className="fixed inset-0 bg-accent/[0.07]"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: [0, 1, 0] }}
                 transition={{ duration: 0.35, ease: "easeOut" }}
               />
-
-              {/* Ring burst — centro da tela */}
               <motion.div
                 className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full"
                 style={{
@@ -343,16 +335,32 @@ export default function QuizScreen({ onComplete }: Props) {
             animate="center"
             exit="exit"
             transition={{ duration: 0.3, ease: "easeInOut" }}
-            className="w-full max-w-2xl"
+            className="w-full max-w-lg"
           >
-            <h2 className="font-heading text-2xl sm:text-3xl font-bold text-center mb-8 leading-snug">
-              {q.title}
-            </h2>
+            {/* Question title with animated underline */}
+            <div className="text-center mb-8">
+              <h2 className="font-heading text-xl sm:text-2xl font-bold leading-relaxed inline">
+                {q.title}
+              </h2>
+              {/* Animated underline — draws L→R synced with option delay */}
+              <motion.div
+                className="mx-auto mt-3 h-[2px] rounded-full bg-accent/30"
+                style={{ transformOrigin: "left", maxWidth: "80%" }}
+                initial={{ scaleX: 0 }}
+                animate={{ scaleX: 1 }}
+                transition={{ duration: baseDelay || 0.3, ease: "easeOut", delay: 0.1 }}
+              />
+            </div>
 
             {isMulti ? (
               <>
-                {/* ── Multi-select: Chip grid layout — visually distinct from single-select ── */}
-                <div className="flex items-center justify-center gap-2 mb-5">
+                {/* ── Multi-select: Chip grid layout ── */}
+                <motion.div
+                  className="flex items-center justify-center gap-2 mb-5"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: baseDelay * 0.5, duration: 0.3 }}
+                >
                   <div className="flex -space-x-1">
                     <span className="w-2 h-2 rounded-full bg-accent/60" />
                     <span className="w-2 h-2 rounded-full bg-accent/40" />
@@ -361,36 +369,46 @@ export default function QuizScreen({ onComplete }: Props) {
                   <p className="text-sm text-accent/70 font-medium">
                     Toque em todos que se aplicam
                   </p>
-                </div>
+                </motion.div>
 
                 <div className="flex flex-wrap justify-center gap-2.5 sm:gap-3">
-                  {q.options.map((opt, i) => (
-                    <motion.button
-                      key={opt.value}
-                      initial={{ opacity: 0, scale: 0.85 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: i * 0.05, duration: 0.2, type: "spring", stiffness: 300 }}
-                      onClick={() => handleSelect(opt.value)}
-                      className={`px-4 py-2.5 sm:px-5 sm:py-3 rounded-full border-2 text-sm sm:text-base font-medium transition-all duration-200 touch-manipulation outline-none focus-visible:ring-2 focus-visible:ring-accent/60 ${
-                        isSelectedOpt(opt.value)
-                          ? "border-accent bg-accent/15 text-accent shadow-md shadow-accent/20 scale-[1.05]"
-                          : "border-white/[0.12] bg-white/[0.04] text-foreground/70 hover:border-accent/30 hover:bg-white/[0.07] active:scale-[0.96]"
-                      }`}
-                    >
-                      <span className="flex items-center gap-2">
-                        {isSelectedOpt(opt.value) && <AnimatedCheck />}
-                        {opt.label}
-                      </span>
-                    </motion.button>
-                  ))}
+                  {q.options.map((opt, i) => {
+                    const optDelay = baseDelay + i * staggerInterval;
+                    return (
+                      <motion.button
+                        key={opt.value}
+                        initial={{ opacity: 0, scale: 0.85, pointerEvents: "none" as const }}
+                        animate={{ opacity: 1, scale: 1, pointerEvents: "auto" as const }}
+                        transition={{
+                          delay: optDelay,
+                          duration: 0.25,
+                          type: "spring",
+                          stiffness: 300,
+                          // pointer-events transitions instantly at the end of the animation
+                          pointerEvents: { delay: optDelay + 0.15 },
+                        }}
+                        onClick={() => handleSelect(opt.value)}
+                        className={`px-4 py-3 sm:px-5 sm:py-3 rounded-full border-2 text-sm sm:text-base font-medium transition-all duration-200 touch-manipulation outline-none focus-visible:ring-2 focus-visible:ring-accent/60 ${
+                          isSelectedOpt(opt.value)
+                            ? "border-accent bg-accent/15 text-accent shadow-md shadow-accent/20 scale-[1.05]"
+                            : "border-white/[0.12] bg-white/[0.04] text-foreground/70 hover:border-accent/30 hover:bg-white/[0.07] active:scale-[0.96]"
+                        }`}
+                      >
+                        <span className="flex items-center gap-2">
+                          {isSelectedOpt(opt.value) && <AnimatedCheck />}
+                          {opt.label}
+                        </span>
+                      </motion.button>
+                    );
+                  })}
                 </div>
 
-                {/* Confirm button — always visible, disabled when nothing selected */}
+                {/* Confirm button */}
                 <motion.div
                   className="mt-8 text-center"
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.3, duration: 0.3 }}
+                  transition={{ delay: baseDelay + q.options.length * staggerInterval + 0.1, duration: 0.3 }}
                 >
                   <Button
                     onClick={handleMultiConfirm}
@@ -409,37 +427,45 @@ export default function QuizScreen({ onComplete }: Props) {
               </>
             ) : (
               <>
-                {/* ── Single-select: Classic vertical list ── */}
+                {/* ── Single-select: Classic vertical list with stagger ── */}
                 <div className="space-y-3">
-                  {q.options.map((opt, i) => (
-                    <motion.button
-                      key={opt.value}
-                      initial={{ opacity: 0, y: 12 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: i * 0.06, duration: 0.25 }}
-                      onClick={() => handleSelect(opt.value)}
-                      className={`w-full text-left p-4 sm:p-5 rounded-xl border transition-all duration-200 touch-manipulation outline-none focus-visible:ring-2 focus-visible:ring-accent/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background backdrop-blur-sm group ${
-                        isSelectedOpt(opt.value)
-                          ? "border-accent/60 bg-accent/12 shadow-lg shadow-accent/20 scale-[1.02] ring-1 ring-accent/15"
-                          : "border-white/[0.08] bg-white/[0.03] hover:border-accent/30 hover:bg-white/[0.06] hover:shadow-md hover:shadow-black/20 active:scale-[0.98] active:bg-white/[0.08]"
-                      }`}
-                    >
-                      <div className="flex items-start gap-3">
-                        <span
-                          className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 text-xs font-bold transition-all duration-200 ${
-                            isSelectedOpt(opt.value)
-                              ? "border-accent bg-accent text-accent-foreground shadow-md shadow-accent/30"
-                              : "border-muted-foreground/40 text-muted-foreground"
-                          }`}
-                        >
-                          {isSelectedOpt(opt.value) ? <AnimatedCheck /> : String.fromCharCode(65 + i)}
-                        </span>
-                        <span className={`text-sm sm:text-base transition-colors duration-200 ${
-                          isSelectedOpt(opt.value) ? "text-foreground" : "text-foreground/80"
-                        }`}>{opt.label}</span>
-                      </div>
-                    </motion.button>
-                  ))}
+                  {q.options.map((opt, i) => {
+                    const optDelay = baseDelay + i * staggerInterval;
+                    return (
+                      <motion.button
+                        key={opt.value}
+                        initial={{ opacity: 0, y: 16, pointerEvents: "none" as const }}
+                        animate={{ opacity: 1, y: 0, pointerEvents: "auto" as const }}
+                        transition={{
+                          delay: optDelay,
+                          duration: 0.25,
+                          ease: "easeOut",
+                          pointerEvents: { delay: optDelay + 0.15 },
+                        }}
+                        onClick={() => handleSelect(opt.value)}
+                        className={`w-full text-left p-4 sm:p-5 rounded-xl border transition-all duration-200 touch-manipulation outline-none focus-visible:ring-2 focus-visible:ring-accent/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background backdrop-blur-sm group ${
+                          isSelectedOpt(opt.value)
+                            ? "border-accent/60 bg-accent/12 shadow-lg shadow-accent/20 scale-[1.02] ring-1 ring-accent/15"
+                            : "border-white/[0.08] bg-white/[0.03] hover:border-accent/30 hover:bg-white/[0.06] hover:shadow-md hover:shadow-black/20 active:scale-[0.98] active:bg-white/[0.08]"
+                        }`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <span
+                            className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 text-xs font-bold transition-all duration-200 ${
+                              isSelectedOpt(opt.value)
+                                ? "border-accent bg-accent text-accent-foreground shadow-md shadow-accent/30"
+                                : "border-muted-foreground/40 text-muted-foreground"
+                            }`}
+                          >
+                            {isSelectedOpt(opt.value) ? <AnimatedCheck /> : String.fromCharCode(65 + i)}
+                          </span>
+                          <span className={`text-sm sm:text-base transition-colors duration-200 ${
+                            isSelectedOpt(opt.value) ? "text-foreground" : "text-foreground/80"
+                          }`}>{opt.label}</span>
+                        </div>
+                      </motion.button>
+                    );
+                  })}
                 </div>
               </>
             )}
@@ -447,14 +473,16 @@ export default function QuizScreen({ onComplete }: Props) {
         </AnimatePresence>
       </div>
 
-      {/* Bonus Unlock Banner — shows between questions */}
-      {activeBonusBanner && (
-        <BonusUnlockBanner
-          key={activeBonusBanner}
-          bonusId={activeBonusBanner}
-          onDone={handleBonusDone}
-        />
-      )}
+      {/* Bonus Unlock Banner — non-blocking toast overlay */}
+      <AnimatePresence>
+        {activeBonusBanner && (
+          <BonusUnlockBanner
+            key={activeBonusBanner}
+            bonusId={activeBonusBanner}
+            onDone={handleBonusDone}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
