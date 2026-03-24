@@ -17,33 +17,60 @@ export type Database = {
       leads: {
         Row: {
           answers: Json | null
+          bonus_code: string | null
+          bonuses_unlocked: string[] | null
           created_at: string
           email: string
           financial_potential: string | null
           id: string
+          lead_short_id: string | null
           name: string
+          patrimonio_faixa: string | null
           profile_type: number | null
+          quiz_completed_at: string | null
+          renda_faixa: string | null
+          utm_campaign: string | null
+          utm_source: string | null
           whatsapp: string
+          whatsapp_clicked: boolean | null
         }
         Insert: {
           answers?: Json | null
+          bonus_code?: string | null
+          bonuses_unlocked?: string[] | null
           created_at?: string
           email: string
           financial_potential?: string | null
           id?: string
+          lead_short_id?: string | null
           name: string
+          patrimonio_faixa?: string | null
           profile_type?: number | null
+          quiz_completed_at?: string | null
+          renda_faixa?: string | null
+          utm_campaign?: string | null
+          utm_source?: string | null
           whatsapp: string
+          whatsapp_clicked?: boolean | null
         }
         Update: {
           answers?: Json | null
+          bonus_code?: string | null
+          bonuses_unlocked?: string[] | null
           created_at?: string
           email?: string
           financial_potential?: string | null
           id?: string
+          lead_short_id?: string | null
           name?: string
+          patrimonio_faixa?: string | null
           profile_type?: number | null
+          quiz_completed_at?: string | null
+          renda_faixa?: string | null
+          utm_campaign?: string | null
+          utm_source?: string | null
           whatsapp?: string
+          whatsapp_clicked?: boolean | null
         }
         Relationships: []
       }

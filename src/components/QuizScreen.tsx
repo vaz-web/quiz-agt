@@ -1,6 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { questions } from "@/data/quizData";
+import { calculateBonuses } from "@/data/bonusSystem";
+import BonusUnlockBanner from "@/components/BonusUnlockBanner";
 import { Progress } from "@/components/ui/progress";
 import { ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -33,12 +35,43 @@ function AnimatedCheck() {
 /* ════════════════════════════════════════════════════════════ */
 
 export default function QuizScreen({ onComplete }: Props) {
-  const [current, setCurrent] = useState(0);
-  const [answers, setAnswers] = useState<Record<number, string>>({});
+  // Save state: restore quiz progress from localStorage
+  const [current, setCurrent] = useState(() => {
+    try {
+      const saved = localStorage.getItem("quiz_progress_index");
+      if (saved) return Math.min(Number(saved), questions.length - 1);
+    } catch (_) {}
+    return 0;
+  });
+  const [answers, setAnswers] = useState<Record<number, string>>(() => {
+    try {
+      const saved = localStorage.getItem("quiz_progress_answers");
+      if (saved) return JSON.parse(saved);
+    } catch (_) {}
+    return {};
+  });
+  const [showResume, setShowResume] = useState(() => {
+    try {
+      const savedIdx = localStorage.getItem("quiz_progress_index");
+      return savedIdx !== null && Number(savedIdx) > 0;
+    } catch (_) { return false; }
+  });
   const [selected, setSelected] = useState<string | null>(null);
   const [multiSelected, setMultiSelected] = useState<Set<string>>(new Set());
   const [direction, setDirection] = useState<1 | -1>(1);
   const [showMicroWin, setShowMicroWin] = useState(false);
+
+  // Bonus unlock banners — tracks which bonuses have been shown
+  const [shownBonuses, setShownBonuses] = useState<Set<string>>(new Set());
+  const [activeBonusBanner, setActiveBonusBanner] = useState<string | null>(null);
+
+  // Persist progress on every answer
+  useEffect(() => {
+    try {
+      localStorage.setItem("quiz_progress_index", String(current));
+      localStorage.setItem("quiz_progress_answers", JSON.stringify(answers));
+    } catch (_) {}
+  }, [current, answers]);
 
   const q = questions[current];
   const isMulti = q.multiSelect === true;
@@ -61,13 +94,48 @@ export default function QuizScreen({ onComplete }: Props) {
 
   const advance = (newAnswers: Record<number, string>) => {
     if (current === questions.length - 1) {
+      // Clear save state on completion
+      try {
+        localStorage.removeItem("quiz_progress_index");
+        localStorage.removeItem("quiz_progress_answers");
+      } catch (_) {}
       onComplete(newAnswers);
       return;
     }
+
+    // Check for bonus unlocks at transition points (index 6 = after renda, index 7 = after tempo)
+    // Bonus 1 shows after index 6, Bonus 2 shows after index 7
+    if (current === 6 || current === 7) {
+      const currentBonuses = calculateBonuses(newAnswers);
+      const newBonus = currentBonuses.find((b) => !shownBonuses.has(b));
+      if (newBonus) {
+        setShownBonuses((prev) => new Set([...prev, newBonus]));
+        setActiveBonusBanner(newBonus);
+        // Don't advance yet — banner will call advance via onDone
+        // Store pending advance state
+        setPendingAdvance(true);
+        return;
+      }
+    }
+
+    doAdvance();
+  };
+
+  const [pendingAdvance, setPendingAdvance] = useState(false);
+
+  const doAdvance = () => {
     setDirection(1);
     setCurrent((c) => c + 1);
     setSelected(null);
     setMultiSelected(new Set());
+  };
+
+  const handleBonusDone = () => {
+    setActiveBonusBanner(null);
+    if (pendingAdvance) {
+      setPendingAdvance(false);
+      doAdvance();
+    }
   };
 
   const handleSelect = (value: string) => {
@@ -148,6 +216,50 @@ export default function QuizScreen({ onComplete }: Props) {
       <div className="w-full max-w-2xl mx-auto mb-4 text-center relative z-10">
         <AGTLogo className="mx-auto opacity-60" />
       </div>
+
+      {/* Resume prompt — asks if user wants to continue from where they left off */}
+      <AnimatePresence>
+        {showResume && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.3 }}
+            className="w-full max-w-2xl mx-auto mb-4 relative z-10"
+          >
+            <div className="rounded-xl border border-accent/20 bg-accent/5 backdrop-blur-sm p-4 flex flex-col sm:flex-row items-center gap-3">
+              <p className="text-sm text-foreground/80 flex-1 text-center sm:text-left">
+                Você parou na pergunta {current + 1}. Quer continuar?
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => setShowResume(false)}
+                  className="h-9 px-4 rounded-lg text-xs font-semibold gradient-gold text-primary-foreground"
+                >
+                  Continuar
+                </Button>
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    setCurrent(0);
+                    setAnswers({});
+                    setSelected(null);
+                    setMultiSelected(new Set());
+                    setShowResume(false);
+                    try {
+                      localStorage.removeItem("quiz_progress_index");
+                      localStorage.removeItem("quiz_progress_answers");
+                    } catch (_) {}
+                  }}
+                  className="h-9 px-4 rounded-lg text-xs text-muted-foreground hover:text-foreground"
+                >
+                  Recomeçar
+                </Button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Progress */}
       <div className="w-full max-w-2xl mx-auto mb-2 relative z-10">
@@ -334,6 +446,15 @@ export default function QuizScreen({ onComplete }: Props) {
           </motion.div>
         </AnimatePresence>
       </div>
+
+      {/* Bonus Unlock Banner — shows between questions */}
+      {activeBonusBanner && (
+        <BonusUnlockBanner
+          key={activeBonusBanner}
+          bonusId={activeBonusBanner}
+          onDone={handleBonusDone}
+        />
+      )}
     </div>
   );
 }

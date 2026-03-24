@@ -24,18 +24,17 @@ export default function WelcomeScreen({ onStart }: Props) {
         {/* Decorative divider */}
         <div className="mx-auto mb-6 w-16 h-[2px] bg-gradient-to-r from-transparent via-accent/40 to-transparent" />
 
-        {/* Headline */}
+        {/* Headline — loss aversion framing */}
         <h1 className="mb-4 font-heading text-3xl font-bold leading-tight sm:text-4xl md:text-5xl text-white">
-          Qual{" "}
-          <span className="text-accent">perfil de investidor</span>{" "}
-          você é?
+          Descubra o que seu perfil{" "}
+          <span className="text-accent">está deixando na mesa</span>
         </h1>
 
         {/* Subtitle */}
         <p className="mx-auto mb-6 max-w-md text-base text-white/55 sm:text-lg leading-relaxed">
-          Veja como seu perfil se compara a +10.000 investidores.
+          Faça o diagnóstico e veja como seu perfil se compara a +10.000 investidores.
           <br />
-          <span className="text-white/40 text-sm">Leva menos de 2 minutos.</span>
+          <span className="text-white/40 text-sm">Leva menos de 2 minutos. Resultado imediato.</span>
         </p>
 
         {/* Journey overview — prepara a pessoa para os 3 passos */}

@@ -7,7 +7,8 @@ import ProcessingScreen from "@/components/ProcessingScreen";
 import ResultScreen from "@/components/ResultScreen";
 import DebugPanel from "@/components/DebugPanel";
 import AnimatedBackground from "@/components/AnimatedBackground";
-import { classifyProfile, classifyPotential, ProfileType, FinancialPotential, questions } from "@/data/quizData";
+import { classifyProfile, classifyPotential, getPatrimonioLabel, getRendaLabel, ProfileType, FinancialPotential, questions } from "@/data/quizData";
+import { calculateBonuses, generateBonusCode } from "@/data/bonusSystem";
 import { supabase } from "@/integrations/supabase/client";
 
 type Stage = "welcome" | "quiz" | "transition" | "lead" | "processing" | "result";
@@ -92,6 +93,22 @@ const Index = () => {
     return 1;
   });
 
+  // Bonus system — recalculated from answers (pure function, no persistence needed)
+  const bonuses = Object.keys(answers).length > 0 ? calculateBonuses(answers) : [];
+
+  // Lead ID from Supabase (returned after INSERT)
+  const [leadDbId, setLeadDbId] = useState<string | null>(null);
+  const [leadShortId, setLeadShortId] = useState<string | null>(null);
+
+  // UTM tracking — captured on mount
+  const [utmParams] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return {
+      utm_source: params.get("utm_source") || undefined,
+      utm_campaign: params.get("utm_campaign") || undefined,
+    };
+  });
+
   /* ── Debug Panel ─────────────────────────────────────────── */
   const [debugOpen, setDebugOpen] = useState(false);
 
@@ -158,20 +175,39 @@ const Index = () => {
     const p = classifyProfile(answers);
     const fp = classifyPotential(answers);
     const fullTextAnswers = mapAnswersToFullText(answers);
+    const leadBonuses = calculateBonuses(answers);
+    // Gera código provisório — será atualizado com leadShortId real do banco
+    const tempCode = generateBonusCode(p, fp, leadBonuses, "------");
 
     try {
-      const { error } = await supabase.from("leads").insert({
-        name: data.name,
-        whatsapp: data.whatsapp,
-        email: data.email,
-        answers: fullTextAnswers,
-        profile_type: p,
-        financial_potential: fp,
-      });
+      const { data: insertedRows, error } = await supabase
+        .from("leads")
+        .insert({
+          name: data.name,
+          whatsapp: data.whatsapp,
+          email: data.email,
+          answers: fullTextAnswers,
+          profile_type: p,
+          financial_potential: fp,
+          bonuses_unlocked: leadBonuses,
+          renda_faixa: getRendaLabel(answers[5]),
+          patrimonio_faixa: getPatrimonioLabel(answers[4]),
+          quiz_completed_at: new Date().toISOString(),
+          utm_source: utmParams.utm_source,
+          utm_campaign: utmParams.utm_campaign,
+        })
+        .select("id, lead_short_id");
+
       if (error) {
         console.error("[Supabase] Erro ao salvar lead:", error.message);
-      } else {
-        console.log("[Supabase] Lead salvo com sucesso:", data.name);
+      } else if (insertedRows && insertedRows.length > 0) {
+        const row = insertedRows[0];
+        setLeadDbId(row.id);
+        setLeadShortId(row.lead_short_id);
+        // Atualiza bonus_code com o lead_short_id real
+        const finalCode = generateBonusCode(p, fp, leadBonuses, row.lead_short_id);
+        await supabase.from("leads").update({ bonus_code: finalCode }).eq("id", row.id);
+        console.log("[Supabase] Lead salvo:", data.name, "| Código:", finalCode);
       }
     } catch (err) {
       console.error("[Supabase] Falha na conexão:", err);
@@ -200,10 +236,18 @@ const Index = () => {
         {stage === "welcome" && <WelcomeScreen onStart={() => setStage("quiz")} />}
         {stage === "quiz" && <QuizScreen onComplete={handleQuizComplete} />}
         {stage === "transition" && <TransitionScreen onDone={handleTransitionDone} />}
-        {stage === "lead" && <LeadCapture onSubmit={handleLead} profile={profile} answers={answers} />}
+        {stage === "lead" && <LeadCapture onSubmit={handleLead} profile={profile} answers={answers} bonuses={bonuses} />}
         {stage === "processing" && <ProcessingScreen onDone={handleProcessingDone} answers={answers} />}
         {stage === "result" && (
-          <ResultScreen profile={profile} answers={answers} leadName={lead.name} onRestart={handleRestart} />
+          <ResultScreen
+            profile={profile}
+            answers={answers}
+            leadName={lead.name}
+            onRestart={handleRestart}
+            leadDbId={leadDbId}
+            leadShortId={leadShortId}
+            bonuses={bonuses}
+          />
         )}
       </div>
 

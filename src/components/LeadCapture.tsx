@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from "react";
 import { z } from "zod";
 import { motion, AnimatePresence } from "framer-motion";
-import { Shield, TrendingUp, CheckCircle, Lock, Target, Zap } from "lucide-react";
+import { Shield, TrendingUp, CheckCircle, Lock, Target, Zap, Gift } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AGTLogo } from "@/components/AGTLogo";
 import { ProfileType, profiles } from "@/data/quizData";
+import { bonusMetadata } from "@/data/bonusSystem";
 
 const leadSchema = z.object({
   name: z.string().trim().min(2, "Nome é obrigatório").max(100),
@@ -20,6 +21,7 @@ interface Props {
   onSubmit: (data: { name: string; whatsapp: string; email: string }) => void;
   profile: ProfileType;
   answers: Record<number, string>;
+  bonuses?: string[];
 }
 
 const profileIcons: Record<ProfileType, React.ReactNode> = {
@@ -34,7 +36,7 @@ const profileColors: Record<ProfileType, { ring: string; accent: string }> = {
   3: { ring: "from-red-400 to-orange-500", accent: "text-red-400" },
 };
 
-export default function LeadCapture({ onSubmit, profile, answers }: Props) {
+export default function LeadCapture({ onSubmit, profile, answers, bonuses = [] }: Props) {
   const [form, setForm] = useState({ name: "", whatsapp: "", email: "" });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showForm, setShowForm] = useState(false);
@@ -42,8 +44,8 @@ export default function LeadCapture({ onSubmit, profile, answers }: Props) {
 
   // Conta campos preenchidos para blur progressivo
   const filledCount = [form.name.trim().length >= 2, form.whatsapp.length >= 10, form.email.includes("@")].filter(Boolean).length;
-  // blur(15) → 12 (nome) → 8 (whatsapp) → 5 (email) — só libera total no submit
-  const blurLevel = showForm ? Math.max(15 - filledCount * 3.5, 5) : 15;
+  // blur(20) → 14 (nome) → 8 (whatsapp) → 2 (email) — dramático e visível
+  const blurLevel = showForm ? Math.max(20 - filledCount * 6, 2) : 20;
 
   const data = profiles[profile];
   const colors = profileColors[profile];
@@ -60,9 +62,36 @@ export default function LeadCapture({ onSubmit, profile, answers }: Props) {
     }
   }, [showForm]);
 
+  // VisualViewport handling — scroll active input into view on iOS/Android keyboard
+  useEffect(() => {
+    if (!showForm) return;
+    const viewport = window.visualViewport;
+    if (!viewport) return;
+
+    const handleResize = () => {
+      const active = document.activeElement;
+      if (active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA")) {
+        setTimeout(() => {
+          (active as HTMLElement).scrollIntoView({ behavior: "smooth", block: "center" });
+        }, 100);
+      }
+    };
+
+    viewport.addEventListener("resize", handleResize);
+    return () => viewport.removeEventListener("resize", handleResize);
+  }, [showForm]);
+
   const handleWhatsappChange = (value: string) => {
     const digits = value.replace(/\D/g, "").slice(0, 11);
     setForm({ ...form, whatsapp: digits });
+  };
+
+  // Máscara visual: 11999887766 → (11) 99988-7766
+  const formatWhatsapp = (digits: string): string => {
+    if (digits.length === 0) return "";
+    if (digits.length <= 2) return `(${digits}`;
+    if (digits.length <= 7) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -118,9 +147,42 @@ export default function LeadCapture({ onSubmit, profile, answers }: Props) {
           <span className="text-accent">surpreendente.</span>
         </h1>
 
-        <p className="mx-auto mb-5 max-w-md text-center text-sm sm:text-base text-muted-foreground">
+        <p className="mx-auto mb-3 max-w-md text-center text-sm sm:text-base text-muted-foreground">
           Preencha abaixo para ver seu resultado completo.
         </p>
+
+        {/* Bonus counter — shows how many bonuses were unlocked */}
+        {bonuses.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3, duration: 0.4 }}
+            className="mx-auto mb-5 max-w-sm rounded-xl border border-accent/20 bg-accent/5 p-3"
+          >
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <Gift className="h-4 w-4 text-accent" />
+              <span className="text-sm font-semibold text-accent">
+                Seu diagnóstico + {bonuses.length} bônus{bonuses.length > 1 ? "" : ""} desbloqueado{bonuses.length > 1 ? "s" : ""}
+              </span>
+            </div>
+            <div className="space-y-1.5">
+              {bonuses.map((bonusId) => {
+                const meta = bonusMetadata[bonusId];
+                if (!meta) return null;
+                return (
+                  <div
+                    key={bonusId}
+                    className="flex items-center gap-2 text-xs text-foreground/60"
+                    style={{ filter: showForm ? `blur(${Math.max(8 - filledCount * 3, 0)}px)` : "blur(6px)" }}
+                  >
+                    <span>{meta.icon}</span>
+                    <span className="truncate">{meta.title}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </motion.div>
+        )}
 
         {/* ── Blurred Result Preview Card ─────────────────────── */}
         <div className="relative mb-5 rounded-2xl glass-card p-4 sm:p-5 overflow-hidden">
@@ -229,13 +291,13 @@ export default function LeadCapture({ onSubmit, profile, answers }: Props) {
                 {errors.name && <p className="mt-1 text-xs text-destructive">{errors.name}</p>}
               </div>
 
-              {/* WhatsApp */}
+              {/* WhatsApp com máscara visual */}
               <div>
                 <Input
                   autoComplete="tel"
                   inputMode="tel"
-                  placeholder="WhatsApp (DDD + número)"
-                  value={form.whatsapp}
+                  placeholder="(11) 99999-9999"
+                  value={formatWhatsapp(form.whatsapp)}
                   onChange={(e) => handleWhatsappChange(e.target.value)}
                   className="h-12 bg-black/40 border-white/10 text-base text-foreground placeholder:text-muted-foreground/50"
                 />
