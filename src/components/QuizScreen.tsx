@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { questions } from "@/data/quizData";
 import { calculateBonuses } from "@/data/bonusSystem";
-import BonusUnlockBanner from "@/components/BonusUnlockBanner";
+import BonusInterstitial from "@/components/BonusInterstitial";
 import { Progress } from "@/components/ui/progress";
 import { ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -67,9 +67,10 @@ export default function QuizScreen({ onComplete }: Props) {
   const [direction, setDirection] = useState<1 | -1>(1);
   const [showMicroWin, setShowMicroWin] = useState(false);
 
-  // Bonus unlock banners — tracks which bonuses have been shown
+  // Bonus interstitial — tracks which bonuses have been shown
   const [shownBonuses, setShownBonuses] = useState<Set<string>>(new Set());
-  const [activeBonusBanner, setActiveBonusBanner] = useState<string | null>(null);
+  const [pendingBonus, setPendingBonus] = useState<string | null>(null);
+  const [bonusShowCount, setBonusShowCount] = useState(0);
 
   // Persist progress on every answer
   useEffect(() => {
@@ -117,22 +118,25 @@ export default function QuizScreen({ onComplete }: Props) {
 
     // Check for bonus unlocks at transition points
     // Bonus 1 shows after index 6 (renda), Bonus 2 shows after index 7 (tempo)
-    // Now non-blocking: advance immediately, show banner as toast overlay
+    // Interstitial: show dedicated screen, user clicks "Continuar" to advance
     if (current === 6 || current === 7) {
       const currentBonuses = calculateBonuses(newAnswers);
       const newBonus = currentBonuses.find((b) => !shownBonuses.has(b));
       if (newBonus) {
         setShownBonuses((prev) => new Set([...prev, newBonus]));
-        setActiveBonusBanner(newBonus);
-        // DON'T block — advance immediately, banner is just a toast
+        setPendingBonus(newBonus);
+        // DON'T advance yet — interstitial will call handleBonusContinue
+        return;
       }
     }
 
     doAdvance();
   };
 
-  const handleBonusDone = () => {
-    setActiveBonusBanner(null);
+  const handleBonusContinue = () => {
+    setPendingBonus(null);
+    setBonusShowCount((c) => c + 1);
+    doAdvance();
   };
 
   const handleSelect = (value: string) => {
@@ -292,6 +296,18 @@ export default function QuizScreen({ onComplete }: Props) {
       {/* Question area */}
       <div className="flex-1 flex items-center justify-center relative z-10">
 
+        {/* ── BONUS INTERSTITIAL — shown in place of question ── */}
+        {pendingBonus ? (
+          <AnimatePresence mode="wait">
+            <BonusInterstitial
+              key={pendingBonus}
+              bonusId={pendingBonus}
+              bonusIndex={bonusShowCount}
+              onContinue={handleBonusContinue}
+            />
+          </AnimatePresence>
+        ) : (
+        <>
         {/* ── FLASH — tela toda ao clicar ── */}
         <AnimatePresence>
           {showMicroWin && !isMulti && (
@@ -471,18 +487,10 @@ export default function QuizScreen({ onComplete }: Props) {
             )}
           </motion.div>
         </AnimatePresence>
+        </>
+        )}
       </div>
 
-      {/* Bonus Unlock Banner — non-blocking toast overlay */}
-      <AnimatePresence>
-        {activeBonusBanner && (
-          <BonusUnlockBanner
-            key={activeBonusBanner}
-            bonusId={activeBonusBanner}
-            onDone={handleBonusDone}
-          />
-        )}
-      </AnimatePresence>
     </div>
   );
 }

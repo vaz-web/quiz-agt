@@ -10,6 +10,7 @@ import {
   FinancialPotential,
 } from "@/data/quizData";
 import { generateBonusCode, bonusMetadata } from "@/data/bonusSystem";
+import ProjectionSection from "@/components/ProjectionSection";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { AGTLogo } from "@/components/AGTLogo";
@@ -351,7 +352,6 @@ export default function ResultScreen({ profile, answers, leadName, onRestart, le
   const riskAwareness = profile === 1 ? 95 : profile === 2 ? 70 : 50;
   const marketReadiness = profile === 1 ? 30 : profile === 2 ? 60 : 85;
   const growthPotential = profile === 1 ? 60 : profile === 2 ? 80 : 95;
-  const lossFrame = getLossFrameCopy(potential, profile);
   const rankingPct = getRankingPct(potential);
   const assetAnalysis = answers[11] ? getAssetAnalysis(answers[11]) : [];
 
@@ -407,15 +407,14 @@ export default function ResultScreen({ profile, answers, leadName, onRestart, le
           </div>
         </motion.div>
 
-        {/* ── 2. LOSS FRAME ────────────────────────────────── */}
-        <motion.div variants={fadeUp} className="rounded-2xl border border-destructive/20 bg-destructive/5 p-5 sm:p-6">
-          <div className="flex items-start gap-3 mb-3">
-            <div className="w-10 h-10 rounded-xl bg-destructive/15 flex items-center justify-center shrink-0">
-              <AlertTriangle className="h-5 w-5 text-destructive" />
-            </div>
-            <h3 className="font-heading text-lg font-bold text-destructive leading-tight pt-1.5">{lossFrame.headline}</h3>
-          </div>
-          <p className="text-sm text-foreground/75 leading-relaxed ml-[52px]">{lossFrame.body}</p>
+        {/* ── 2. PROJECTION CHART + INACTION COST (fused) ── */}
+        <motion.div variants={fadeUp}>
+          <ProjectionSection
+            profile={profile}
+            potential={potential}
+            patrimonioAnswer={answers[4] || "A"}
+            rendaAnswer={answers[5] || "A"}
+          />
         </motion.div>
 
         {/* ── 3. BONUS CARDS ───────────────────────────────── */}
@@ -465,39 +464,7 @@ export default function ResultScreen({ profile, answers, leadName, onRestart, le
           </motion.div>
         )}
 
-        {/* ── 4. TWO PATHS ─────────────────────────────────── */}
-        <motion.div variants={fadeUp} className="glass-card-elevated rounded-2xl p-6 sm:p-8">
-          <div className="flex items-center gap-2 mb-5">
-            <Users className="h-5 w-5 text-accent" />
-            <h2 className="font-heading text-xl font-bold">Dois Caminhos</h2>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-5 space-y-3">
-              <div className="flex items-center gap-2 mb-1">
-                <AlertTriangle className="h-4 w-4 text-destructive" />
-                <span className="text-sm font-bold text-destructive">Sem método</span>
-              </div>
-              {data.traderWithout.map((item, i) => (
-                <div key={i} className="flex items-start gap-2">
-                  <XCircle className="h-4 w-4 text-destructive/70 shrink-0 mt-0.5" />
-                  <p className="text-xs text-foreground/70 leading-relaxed">{item}</p>
-                </div>
-              ))}
-            </div>
-            <div className="rounded-xl border border-accent/30 bg-accent/5 p-5 space-y-3">
-              <div className="flex items-center gap-2 mb-1">
-                <Rocket className="h-4 w-4 text-accent" />
-                <span className="text-sm font-bold text-accent">Com o AGT</span>
-              </div>
-              {data.traderWith.map((item, i) => (
-                <div key={i} className="flex items-start gap-2">
-                  <Check className="h-4 w-4 text-accent/70 shrink-0 mt-0.5" />
-                  <p className="text-xs text-foreground/70 leading-relaxed">{item}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </motion.div>
+        {/* Two Paths moved to collapsible below */}
 
         {/* ── 5. CTA PRIMARY (visible without scroll on mobile) ── */}
         <motion.div variants={fadeUp} className="text-center py-2">
@@ -597,6 +564,58 @@ export default function ResultScreen({ profile, answers, leadName, onRestart, le
             </div>
           </CollapsibleSection>
 
+          {/* Dois Caminhos (moved from main section) */}
+          <CollapsibleSection
+            title="Dois Caminhos: Com e Sem Método"
+            icon={<Users className="h-5 w-5" />}
+            preview={`${data.traderWith[0]?.slice(0, 50)}...`}
+          >
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 space-y-2.5">
+                <div className="flex items-center gap-2 mb-1">
+                  <AlertTriangle className="h-4 w-4 text-destructive" />
+                  <span className="text-sm font-bold text-destructive">Sem método</span>
+                </div>
+                {data.traderWithout.map((item, i) => (
+                  <div key={i} className="flex items-start gap-2">
+                    <XCircle className="h-4 w-4 text-destructive/70 shrink-0 mt-0.5" />
+                    <p className="text-xs text-foreground/70 leading-relaxed">{item}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="rounded-xl border border-accent/30 bg-accent/5 p-4 space-y-2.5">
+                <div className="flex items-center gap-2 mb-1">
+                  <Rocket className="h-4 w-4 text-accent" />
+                  <span className="text-sm font-bold text-accent">Com o AGT</span>
+                </div>
+                {data.traderWith.map((item, i) => (
+                  <div key={i} className="flex items-start gap-2">
+                    <Check className="h-4 w-4 text-accent/70 shrink-0 mt-0.5" />
+                    <p className="text-xs text-foreground/70 leading-relaxed">{item}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </CollapsibleSection>
+
+          {/* Resultados do Perfil (moved from main section) */}
+          <CollapsibleSection
+            title={`Resultados do Perfil ${data.profileLabel}`}
+            icon={<Trophy className="h-5 w-5" />}
+            preview={data.patternResults[0]?.slice(0, 60) + "..."}
+          >
+            <div className="space-y-3">
+              {data.patternResults.map((result, i) => (
+                <div key={i} className="flex items-start gap-3">
+                  <div className="shrink-0 w-8 h-8 rounded-full bg-accent/15 flex items-center justify-center">
+                    <CheckCircle2 className="h-4 w-4 text-accent" />
+                  </div>
+                  <p className="text-sm text-foreground/85 leading-relaxed pt-1">{result}</p>
+                </div>
+              ))}
+            </div>
+          </CollapsibleSection>
+
           {/* Ponto Forte + Reframe */}
           <CollapsibleSection
             title="Seu Ponto Forte"
@@ -622,24 +641,7 @@ export default function ResultScreen({ profile, answers, leadName, onRestart, le
           </CollapsibleSection>
         </motion.div>
 
-        {/* ── 7. PATTERN RESULTS ───────────────────────────── */}
-        <motion.div variants={fadeUp} className="glass-card rounded-2xl p-6 sm:p-8">
-          <div className="flex items-center gap-2 mb-5">
-            <Trophy className="h-5 w-5 text-accent" />
-            <h2 className="font-heading text-xl font-bold">Resultados do Perfil {data.profileLabel}</h2>
-          </div>
-          <p className="text-xs text-muted-foreground mb-4">Quem segue o método vs quem tenta sozinho:</p>
-          <div className="space-y-3">
-            {data.patternResults.map((result, i) => (
-              <div key={i} className="flex items-start gap-3 opacity-0 animate-fade-up" style={{ animationDelay: `${i * 150}ms` }}>
-                <div className="shrink-0 w-8 h-8 rounded-full bg-accent/15 flex items-center justify-center">
-                  <CheckCircle2 className="h-4 w-4 text-accent" />
-                </div>
-                <p className="text-sm text-foreground/85 leading-relaxed pt-1">{result}</p>
-              </div>
-            ))}
-          </div>
-        </motion.div>
+        {/* Pattern Results moved to collapsible above */}
 
         {/* ── 8. CTA SECONDARY (urgente) ───────────────────── */}
         <motion.div variants={fadeUp} className="text-center py-2">
