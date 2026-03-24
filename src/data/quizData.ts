@@ -227,6 +227,47 @@ export function getAssetAnalysis(assetsAnswer: string): AssetAnalysis[] {
   return results;
 }
 
+/* ── Potencial financeiro (para hint no WhatsApp) ────── */
+export type FinancialPotential = "baixo" | "medio" | "alto" | "elite";
+
+/**
+ * Classifica o potencial financeiro do lead cruzando capital (Q4) e renda (Q5).
+ *
+ * Regras (adaptadas às faixas do quiz):
+ * - Elite:  capital C+ (≥100k) — investidor sério
+ * - Alto:   renda D (>20k/mês) OU capital B (10k-100k)
+ * - Médio:  renda B ou C (3k-20k) — tem capacidade mas não é alto
+ * - Baixo:  renda A (≤3k) E capital A (<10k)
+ */
+export function classifyPotential(answers: Record<number, string>): FinancialPotential {
+  const capital = answers[4]; // A=<10k, B=10-100k, C=100-500k, D=500k-1M, E=>1M
+  const renda = answers[5];   // A=≤3k, B=≤10k, C=≤20k, D=>20k
+
+  // Elite: capital significativo (100k+)
+  if (capital === "C" || capital === "D" || capital === "E") return "elite";
+
+  // Alto: alta renda OU capital entre 10k-100k
+  if (renda === "D") return "alto";
+  if (capital === "B") return "alto";
+
+  // Médio: renda entre 3k-20k (B ou C) com pouco capital
+  if (renda === "B" || renda === "C") return "medio";
+
+  // Baixo: renda até 3k E capital < 10k
+  return "baixo";
+}
+
+/**
+ * Hints para mensagem do WhatsApp por potencial financeiro.
+ * O cliente lê e se identifica. O atendente lê e sabe a faixa.
+ */
+export const potentialHints: Record<FinancialPotential, string> = {
+  baixo: "Quero começar a construir meu patrimônio do zero.",
+  medio: "Quero fazer meu dinheiro trabalhar de forma mais inteligente.",
+  alto: "Quero uma estratégia profissional pra acelerar meus resultados.",
+  elite: "Quero proteger e multiplicar meu patrimônio com a melhor estratégia.",
+};
+
 export interface ProfileData {
   title: string;
   emoji: string;

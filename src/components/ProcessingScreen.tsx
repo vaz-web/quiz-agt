@@ -10,37 +10,37 @@ interface Props {
 }
 
 function buildMessages(answers?: Record<number, string>): string[] {
-  const msgs: string[] = ["Analisando suas respostas..."];
+  const msgs: string[] = ["Cruzando suas respostas com nosso banco de dados..."];
 
   if (answers) {
     const exp = answers[3];
     if (exp === "A") {
-      msgs.push("Identificando seu caminho ideal...");
+      msgs.push("Identificando oportunidades para seu momento...");
     } else if (exp === "B") {
-      msgs.push("Mapeando sua experiência...");
+      msgs.push("Comparando seu perfil com investidores como você...");
     } else if (exp === "C") {
-      msgs.push("Analisando seu histórico...");
+      msgs.push("Analisando padrões no seu histórico...");
     }
 
     const assets = answers[11];
     if (assets) {
       const selected = assets.split(",").map((s) => s.trim());
       if (selected.includes("D")) {
-        msgs.push("Cruzando com o método AGT...");
+        msgs.push("Calculando assimetria dos seus ativos...");
       } else if (selected.includes("B") || selected.includes("C")) {
-        msgs.push("Avaliando seus investimentos...");
+        msgs.push("Avaliando potencial oculto nos seus investimentos...");
       } else {
-        msgs.push("Comparando com +10.000 diagnósticos...");
+        msgs.push("Mapeando seu ponto de partida ideal...");
       }
     } else {
-      msgs.push("Comparando com +10.000 diagnósticos...");
+      msgs.push("Mapeando seu ponto de partida ideal...");
     }
   } else {
-    msgs.push("Comparando com +10.000 diagnósticos...");
+    msgs.push("Comparando com +10.000 perfis analisados...");
     msgs.push("Calculando assimetria de risco...");
   }
 
-  msgs.push("Montando seu diagnóstico...");
+  msgs.push("Finalizando seu diagnóstico personalizado...");
   return msgs;
 }
 

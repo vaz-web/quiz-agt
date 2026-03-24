@@ -52,11 +52,36 @@
 
   body {
     @apply bg-background text-foreground;
-    font-family: 'DM Sans', sans-serif;
+    font-family: 'Space Grotesk', 'DM Sans', sans-serif;
+    background:
+      radial-gradient(ellipse 80% 50% at 50% -10%, hsl(220 40% 12%) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 40% at 80% 80%, hsl(28 30% 8%) 0%, transparent 50%),
+      hsl(220 35% 4%);
+    min-height: 100vh;
+  }
+
+  /* Subtle noise grain overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    opacity: 0.035;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-repeat: repeat;
+    background-size: 256px 256px;
+  }
+
+  /* Ensure all content sits above noise */
+  #root {
+    position: relative;
+    z-index: 1;
   }
 
   h1, h2, h3, h4 {
-    font-family: 'Sora', sans-serif;
+    font-family: 'Space Grotesk', 'Sora', sans-serif;
+    letter-spacing: -0.02em;
   }
 }
 
@@ -64,22 +89,60 @@
   .gradient-bg {
     background: linear-gradient(180deg, hsl(220 35% 6%) 0%, hsl(220 22% 11%) 100%);
   }
-  
+
   .gradient-gold {
     background: linear-gradient(135deg, hsl(28 90% 55%) 0%, hsl(0 72% 51%) 100%);
   }
 
+  /* Glass card tiers — increasing elevation */
   .glass-card {
-    background: hsl(220 28% 8% / 0.75);
-    backdrop-filter: blur(16px);
-    border: 1px solid hsl(220 18% 20% / 0.4);
+    background: hsl(220 28% 8% / 0.65);
+    backdrop-filter: blur(20px);
+    border: 1px solid hsl(220 18% 22% / 0.35);
+    box-shadow: 0 2px 16px hsl(220 40% 4% / 0.3);
+  }
+
+  .glass-card-elevated {
+    background: hsl(220 28% 9% / 0.7);
+    backdrop-filter: blur(24px);
+    border: 1px solid hsl(220 18% 24% / 0.45);
+    box-shadow:
+      0 4px 24px hsl(220 40% 4% / 0.4),
+      0 0 0 1px hsl(220 18% 28% / 0.08);
+  }
+
+  .glass-card-hero {
+    background: hsl(220 28% 9% / 0.8);
+    backdrop-filter: blur(32px);
+    border: 1px solid hsl(220 18% 26% / 0.5);
+    box-shadow:
+      0 8px 40px hsl(220 40% 4% / 0.5),
+      0 0 0 1px hsl(220 18% 30% / 0.1),
+      inset 0 1px 0 hsl(220 18% 40% / 0.06);
   }
 }
 
-/* Red pulse glow for AGT-branded CTA buttons */
+/* Gradient mesh blob animations */
+@keyframes blobFloat1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(60px, -40px) scale(1.1); }
+  66% { transform: translate(-30px, 30px) scale(0.95); }
+}
+@keyframes blobFloat2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(-50px, 50px) scale(1.05); }
+  66% { transform: translate(40px, -20px) scale(0.9); }
+}
+@keyframes blobFloat3 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(30px, 40px) scale(1.08); }
+  66% { transform: translate(-40px, -30px) scale(0.92); }
+}
+
+/* Accent pulse glow for AGT-branded CTA buttons */
 @keyframes pulse-glow-red {
-  0%, 100% { box-shadow: 0 0 20px -5px rgba(224, 32, 32, 0.3); }
-  50% { box-shadow: 0 0 40px -5px rgba(224, 32, 32, 0.55); }
+  0%, 100% { box-shadow: 0 0 20px -5px hsl(28 90% 55% / 0.3); }
+  50% { box-shadow: 0 0 40px -5px hsl(28 90% 55% / 0.5); }
 }
 .animate-pulse-glow-red {
   animation: pulse-glow-red 2s ease-in-out infinite;

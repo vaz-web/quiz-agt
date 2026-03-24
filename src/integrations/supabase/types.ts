@@ -19,6 +19,7 @@ export type Database = {
           answers: Json | null
           created_at: string
           email: string
+          financial_potential: string | null
           id: string
           name: string
           profile_type: number | null
@@ -28,6 +29,7 @@ export type Database = {
           answers?: Json | null
           created_at?: string
           email: string
+          financial_potential?: string | null
           id?: string
           name: string
           profile_type?: number | null
@@ -37,6 +39,7 @@ export type Database = {
           answers?: Json | null
           created_at?: string
           email?: string
+          financial_potential?: string | null
           id?: string
           name?: string
           profile_type?: number | null

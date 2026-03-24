@@ -6,6 +6,8 @@ import {
   getPatrimonioLabel,
   getRendaLabel,
   getAssetAnalysis,
+  classifyPotential,
+  potentialHints,
 } from "@/data/quizData";
 import { Button } from "@/components/ui/button";
 import { AGTLogo } from "@/components/AGTLogo";
@@ -68,7 +70,7 @@ function useCountUp(target: number, duration = 1200, delay = 300) {
   return val;
 }
 
-function CircleGauge({ value, max, label, color }: { value: number; max: number; label: string; color: string }) {
+function CircleGauge({ value, max, label, color, id }: { value: number; max: number; label: string; color: string; id: string }) {
   const pct = Math.round((value / max) * 100);
   const animated = useCountUp(pct, 1200, 400);
   const radius = 40;
@@ -83,25 +85,31 @@ function CircleGauge({ value, max, label, color }: { value: number; max: number;
         transition={{ type: "spring", stiffness: 200, damping: 15, delay: 0.2 }}
       >
         <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
-          <circle cx="50" cy="50" r={radius} fill="none" stroke="hsl(var(--secondary))" strokeWidth="8" />
+          <defs>
+            <linearGradient id={`gauge-${id}`} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor={color} stopOpacity="0.6" />
+              <stop offset="100%" stopColor={color} />
+            </linearGradient>
+          </defs>
+          <circle cx="50" cy="50" r={radius} fill="none" stroke="hsl(var(--secondary))" strokeWidth="7" strokeOpacity="0.5" />
           <circle
             cx="50"
             cy="50"
             r={radius}
             fill="none"
-            stroke={color}
-            strokeWidth="8"
+            stroke={`url(#gauge-${id})`}
+            strokeWidth="7"
             strokeLinecap="round"
             strokeDasharray={circ}
             strokeDashoffset={circ - (circ * animated) / 100}
-            style={{ filter: `drop-shadow(0 0 3px ${color}88)` }}
+            style={{ filter: `drop-shadow(0 0 6px ${color}66)` }}
           />
         </svg>
         <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-lg font-bold tabular-nums">{animated}%</span>
+          <span className="text-lg font-bold tabular-nums">{animated}<span className="text-xs text-muted-foreground">%</span></span>
         </div>
       </motion.div>
-      <span className="text-xs text-muted-foreground text-center leading-tight">{label}</span>
+      <span className="text-[11px] text-muted-foreground text-center leading-tight font-medium tracking-wide uppercase">{label}</span>
     </div>
   );
 }
@@ -271,13 +279,28 @@ export default function ResultScreen({ profile, answers, leadName, onRestart }: 
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  const WHATSAPP_URL = "https://wa.me/551152865840";
+  // Mensagem personalizada: Nome + Perfil + Hint de potencial financeiro + CTA
+  const potential = classifyPotential(answers);
+  const hint = potentialHints[potential];
+  const whatsappMessage = encodeURIComponent(
+    `Olá! Sou ${leadName}, fiz o Diagnóstico AGT e meu perfil é: ${data.title}. ${hint} Quero saber mais sobre como evoluir!`
+  );
+  const WHATSAPP_URL = `https://wa.me/551152865840?text=${whatsappMessage}`;
+
+  const [ctaLoading, setCtaLoading] = useState(false);
 
   const handleCTA = () => {
+    setCtaLoading(true);
     setShowConfirmation(true);
+    // Salva estado antes do redirect pra que ao voltar o resultado ainda esteja visível
+    try {
+      localStorage.setItem("quiz_whatsapp_sent", "true");
+    } catch (_) {}
+    // Usa location.href para evitar popup bloqueado em mobile
+    // Delay curto para feedback visual, mas dentro de tolerância do browser
     setTimeout(() => {
-      window.open(WHATSAPP_URL, "_blank");
-    }, 2000);
+      window.location.href = WHATSAPP_URL;
+    }, 800);
   };
 
   if (showConfirmation) {
@@ -297,8 +320,16 @@ export default function ResultScreen({ profile, answers, leadName, onRestart }: 
             <CheckCircle2 className="h-16 w-16 text-accent mx-auto mb-4" />
           </motion.div>
           <h2 className="font-heading text-3xl font-bold mb-2">Excelente, {firstName}!</h2>
-          <p className="text-muted-foreground text-lg mb-2">Redirecionando para o WhatsApp...</p>
-          <p className="text-accent font-semibold text-sm">Atendimento gratuito — um especialista vai te responder agora!</p>
+          <p className="text-muted-foreground text-lg mb-2">Abrindo WhatsApp...</p>
+          <p className="text-accent font-semibold text-sm mb-6">Um especialista vai montar sua estratégia agora!</p>
+          {/* Fallback link caso o redirect não funcione */}
+          <a
+            href={WHATSAPP_URL}
+            className="inline-flex items-center gap-2 rounded-xl border border-accent/40 bg-accent/10 px-6 py-3 text-sm font-semibold text-accent hover:bg-accent/20 transition-colors"
+          >
+            <MessageCircle className="h-4 w-4" />
+            Toque aqui se não abriu automaticamente
+          </a>
         </motion.div>
       </div>
     );
@@ -338,9 +369,9 @@ export default function ResultScreen({ profile, answers, leadName, onRestart }: 
   };
 
   return (
-    <div className="min-h-[100svh] px-4 py-8 pb-24 sm:py-12 sm:pb-28">
+    <div className="min-h-[100svh] px-4 py-8 pb-28 sm:py-12 sm:pb-32">
       <motion.div
-        className="max-w-3xl mx-auto space-y-6"
+        className="max-w-3xl mx-auto space-y-8"
         variants={staggerContainer}
         initial="hidden"
         animate="visible"
@@ -352,7 +383,7 @@ export default function ResultScreen({ profile, answers, leadName, onRestart }: 
         </motion.div>
 
         {/* ── 1. Profile Hero Card ──────────────────────────── */}
-        <motion.div variants={fadeUp} className="glass-card rounded-2xl p-6 sm:p-10 text-center relative overflow-hidden">
+        <motion.div variants={fadeUp} className="glass-card-hero rounded-2xl p-6 sm:p-10 text-center relative overflow-hidden">
           <div className={`absolute top-0 left-1/2 -translate-x-1/2 w-64 h-64 rounded-full bg-gradient-to-b ${colors.ring} opacity-10 blur-3xl`} />
 
           <p className="text-xs text-muted-foreground mb-4 uppercase tracking-[0.3em] relative">Seu Diagnóstico</p>
@@ -378,14 +409,14 @@ export default function ResultScreen({ profile, answers, leadName, onRestart }: 
           </div>
 
           <div className="grid grid-cols-3 gap-4 mt-8 relative">
-            <CircleGauge value={riskAwareness} max={100} label="Risco" color="hsl(var(--primary))" />
-            <CircleGauge value={marketReadiness} max={100} label="Prontidão" color="hsl(var(--accent))" />
-            <CircleGauge value={growthPotential} max={100} label="Crescimento" color="hsl(var(--destructive))" />
+            <CircleGauge value={riskAwareness} max={100} label="Risco" color="hsl(var(--primary))" id="risk" />
+            <CircleGauge value={marketReadiness} max={100} label="Prontidão" color="hsl(var(--accent))" id="ready" />
+            <CircleGauge value={growthPotential} max={100} label="Crescimento" color="hsl(var(--destructive))" id="growth" />
           </div>
         </motion.div>
 
         {/* ── 1b. Por Que o AGT Foi Feito Para Você ─────────── */}
-        <motion.div variants={fadeUp} className="glass-card rounded-2xl p-6 sm:p-8 relative overflow-hidden">
+        <motion.div variants={fadeUp} className="glass-card-elevated rounded-2xl p-6 sm:p-8 relative overflow-hidden">
           <div className={`absolute -top-20 -right-20 w-40 h-40 rounded-full bg-gradient-to-br ${colors.ring} opacity-5 blur-2xl`} />
           <div className="flex items-center gap-3 mb-6">
             <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-accent/20 to-destructive/20 flex items-center justify-center">
@@ -537,19 +568,19 @@ export default function ResultScreen({ profile, answers, leadName, onRestart }: 
 
         {/* ── CTA Intermediário ─────────────────────────────── */}
         <motion.div variants={fadeUp} className="text-center py-2">
-          <p className="text-sm text-muted-foreground mb-3">Quer aplicar isso ao seu caso?</p>
+          <p className="text-sm text-muted-foreground mb-3">Quer aplicar esse método ao seu perfil?</p>
           <Button
             onClick={handleCTA}
             variant="outline"
             className="border-accent/40 text-accent hover:bg-accent/10 h-12 px-8 rounded-xl font-semibold gap-2"
           >
             <MessageCircle className="h-5 w-5" />
-            Falar com um Consultor AGT
+            Quero minha estratégia personalizada
           </Button>
         </motion.div>
 
         {/* ── 7. Dois Caminhos ──────────────────────────────── */}
-        <motion.div variants={fadeUp} className="glass-card rounded-2xl p-6 sm:p-8">
+        <motion.div variants={fadeUp} className="glass-card-elevated rounded-2xl p-6 sm:p-8">
           <div className="flex items-center gap-2 mb-5">
             <Users className="h-5 w-5 text-accent" />
             <h2 className="font-heading text-xl font-bold">Dois Caminhos</h2>
@@ -607,11 +638,11 @@ export default function ResultScreen({ profile, answers, leadName, onRestart }: 
 
         {/* ── 9. CTA Final ────────────────────────────────── */}
         <motion.div variants={fadeUp} className="text-center pt-4 pb-8">
-          <div className="glass-card rounded-2xl p-6 sm:p-10">
+          <div className="glass-card-hero rounded-2xl p-6 sm:p-10">
             <p className="text-sm text-muted-foreground mb-4 uppercase tracking-wide">Próximo Passo</p>
             <div className="max-w-lg mx-auto mb-6">
               <p className="text-foreground/85 text-sm sm:text-base leading-relaxed">
-                {firstName}, fale <span className="text-accent font-semibold">gratuitamente</span> com um especialista AGT e descubra como aplicar o método ao seu perfil <span className="text-accent font-semibold">{data.profileLabel}</span>.
+                {firstName}, receba <span className="text-accent font-semibold">gratuitamente</span> um plano de ação personalizado para o seu perfil <span className="text-accent font-semibold">{data.profileLabel}</span>.
               </p>
             </div>
             <Button
@@ -619,7 +650,7 @@ export default function ResultScreen({ profile, answers, leadName, onRestart }: 
               className="gradient-gold text-primary-foreground h-16 px-8 sm:px-12 rounded-2xl text-base sm:text-lg font-bold hover:opacity-90 transition-all hover:scale-105 animate-pulse-glow gap-2"
             >
               <MessageCircle className="h-6 w-6" />
-              Falar com um Consultor
+              Quero meu plano de ação
             </Button>
             <p className="text-muted-foreground text-xs mt-3">
               💬 Atendimento gratuito
@@ -637,16 +668,20 @@ export default function ResultScreen({ profile, answers, leadName, onRestart }: 
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 100, opacity: 0 }}
             transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            className="fixed bottom-0 left-0 right-0 z-50 p-4 bg-gradient-to-t from-black/90 via-black/80 to-transparent"
-            style={{ paddingBottom: "max(1.5rem, env(safe-area-inset-bottom, 1.5rem))" }}
+            className="fixed bottom-0 left-0 right-0 z-50 p-4"
+            style={{
+              paddingBottom: "max(1.5rem, env(safe-area-inset-bottom, 1.5rem))",
+              background: "linear-gradient(to top, hsl(220 35% 4% / 0.95) 0%, hsl(220 35% 4% / 0.8) 60%, transparent 100%)",
+              backdropFilter: "blur(12px)",
+            }}
           >
             <div className="max-w-3xl mx-auto">
               <Button
                 onClick={handleCTA}
-                className="gradient-gold text-primary-foreground h-14 w-full rounded-2xl text-base font-bold hover:opacity-90 transition-all gap-2 shadow-xl shadow-accent/20"
+                className="gradient-gold text-primary-foreground h-14 w-full rounded-2xl text-base font-bold hover:opacity-90 transition-all gap-2 shadow-xl shadow-accent/30 animate-pulse-glow"
               >
                 <MessageCircle className="h-5 w-5" />
-                Falar com um Consultor AGT
+                Quero minha estratégia personalizada
               </Button>
             </div>
           </motion.div>

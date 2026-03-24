@@ -42,20 +42,22 @@ export default function QuizScreen({ onComplete }: Props) {
 
   const q = questions[current];
   const isMulti = q.multiSelect === true;
+  // Quiz ocupa 0-80% da barra. Lead capture será ~90%, resultado 100%.
+  // Isso evita que a pessoa ache que "acabou" ao ver 100% na última pergunta.
   const linear = (current + 1) / questions.length;
-  const progress = Math.round(Math.pow(linear, 0.6) * 100);
+  const progress = Math.round(Math.pow(linear, 0.6) * 80);
 
   // Milestone = perguntas nos índices 5 e 8
   const isMilestone = current === 5 || current === 8;
 
   // Curiosity hooks
   const progressHint =
-    current === 0 ? "Vamos descobrir seu perfil" :
-    current <= 2 ? "Bom começo!" :
-    current <= 4 ? "Seu perfil está se formando..." :
-    current <= 6 ? "Passamos da metade!" :
-    current <= 8 ? "Falta pouco pro diagnóstico..." :
-    "Última pergunta!";
+    current === 0 ? "Vamos montar seu perfil..." :
+    current <= 2 ? "Padrão identificado. Continue..." :
+    current <= 4 ? "Seu perfil está ficando interessante..." :
+    current <= 6 ? "Já temos dados suficientes pra surpreender você." :
+    current <= 8 ? "Quase lá — falta pouco pro diagnóstico completo." :
+    "Última pergunta. Seu resultado está quase pronto.";
 
   const advance = (newAnswers: Record<number, string>) => {
     if (current === questions.length - 1) {
@@ -162,9 +164,9 @@ export default function QuizScreen({ onComplete }: Props) {
             )}
             <span>Pergunta {current + 1} de {questions.length}</span>
           </div>
-          <span className="text-accent font-semibold">{Math.round(progress)}%</span>
+          {/* Percentual removido — evita que a pessoa calcule mentalmente e ache que acabou */}
         </div>
-        <Progress value={progress} className="h-2 bg-white/10" />
+        <Progress value={progress} className="h-2.5 bg-white/[0.06] rounded-full shadow-inner" />
         {/* Curiosity hook */}
         <AnimatePresence mode="wait">
           <motion.p
@@ -209,7 +211,7 @@ export default function QuizScreen({ onComplete }: Props) {
                   height: 80,
                   background: isMilestone
                     ? "radial-gradient(circle, rgba(200,130,30,0.25) 0%, rgba(200,130,30,0.08) 40%, transparent 70%)"
-                    : "radial-gradient(circle, rgba(224,32,32,0.2) 0%, rgba(224,32,32,0.06) 40%, transparent 70%)",
+                    : "radial-gradient(circle, hsla(28,80%,50%,0.2) 0%, hsla(28,80%,50%,0.06) 40%, transparent 70%)",
                 }}
                 initial={{ scale: 0, opacity: 0.6 }}
                 animate={{ scale: isMilestone ? 4 : 3, opacity: 0 }}
@@ -235,57 +237,99 @@ export default function QuizScreen({ onComplete }: Props) {
               {q.title}
             </h2>
 
-            {isMulti && (
-              <p className="text-center text-sm text-muted-foreground mb-4">
-                Selecione todos que se aplicam
-              </p>
-            )}
+            {isMulti ? (
+              <>
+                {/* ── Multi-select: Chip grid layout — visually distinct from single-select ── */}
+                <div className="flex items-center justify-center gap-2 mb-5">
+                  <div className="flex -space-x-1">
+                    <span className="w-2 h-2 rounded-full bg-accent/60" />
+                    <span className="w-2 h-2 rounded-full bg-accent/40" />
+                    <span className="w-2 h-2 rounded-full bg-accent/20" />
+                  </div>
+                  <p className="text-sm text-accent/70 font-medium">
+                    Toque em todos que se aplicam
+                  </p>
+                </div>
 
-            <div className="space-y-3">
-              {q.options.map((opt, i) => (
-                <motion.button
-                  key={opt.value}
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.06, duration: 0.25 }}
-                  onClick={() => handleSelect(opt.value)}
-                  className={`w-full text-left p-4 sm:p-5 rounded-xl border transition-all duration-200 touch-manipulation outline-none focus-visible:ring-2 focus-visible:ring-accent/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background backdrop-blur-sm ${
-                    isSelectedOpt(opt.value)
-                      ? "border-accent bg-accent/15 shadow-lg shadow-accent/30 scale-[1.02] ring-1 ring-accent/20"
-                      : "border-white/10 bg-black/30 hover:border-accent/40 hover:bg-black/40 active:scale-[0.98] active:bg-black/50"
-                  }`}
-                >
-                  <div className="flex items-start gap-3">
-                    {/* Badge: letra → checkmark animado quando selecionado */}
-                    <span
-                      className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 text-xs font-bold transition-all duration-200 ${
+                <div className="flex flex-wrap justify-center gap-2.5 sm:gap-3">
+                  {q.options.map((opt, i) => (
+                    <motion.button
+                      key={opt.value}
+                      initial={{ opacity: 0, scale: 0.85 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: i * 0.05, duration: 0.2, type: "spring", stiffness: 300 }}
+                      onClick={() => handleSelect(opt.value)}
+                      className={`px-4 py-2.5 sm:px-5 sm:py-3 rounded-full border-2 text-sm sm:text-base font-medium transition-all duration-200 touch-manipulation outline-none focus-visible:ring-2 focus-visible:ring-accent/60 ${
                         isSelectedOpt(opt.value)
-                          ? "border-accent bg-accent text-accent-foreground shadow-md shadow-accent/30"
-                          : "border-muted-foreground/40 text-muted-foreground"
+                          ? "border-accent bg-accent/15 text-accent shadow-md shadow-accent/20 scale-[1.05]"
+                          : "border-white/[0.12] bg-white/[0.04] text-foreground/70 hover:border-accent/30 hover:bg-white/[0.07] active:scale-[0.96]"
                       }`}
                     >
-                      {isSelectedOpt(opt.value) ? <AnimatedCheck /> : (
-                        isMulti ? "" : String.fromCharCode(65 + i)
-                      )}
-                    </span>
-                    <span className={`text-sm sm:text-base transition-colors duration-200 ${
-                      isSelectedOpt(opt.value) ? "text-foreground" : "text-foreground/80"
-                    }`}>{opt.label}</span>
-                  </div>
-                </motion.button>
-              ))}
-            </div>
+                      <span className="flex items-center gap-2">
+                        {isSelectedOpt(opt.value) && <AnimatedCheck />}
+                        {opt.label}
+                      </span>
+                    </motion.button>
+                  ))}
+                </div>
 
-            {/* Sticky confirm for multi-select (P11) */}
-            {isMulti && multiSelected.size > 0 && (
-              <div className="sticky bottom-4 mt-6 text-center z-20">
-                <Button
-                  onClick={handleMultiConfirm}
-                  className="gradient-gold text-primary-foreground h-14 px-10 rounded-xl font-bold text-base shadow-lg shadow-accent/30 animate-pulse-glow"
+                {/* Confirm button — always visible, disabled when nothing selected */}
+                <motion.div
+                  className="mt-8 text-center"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.3, duration: 0.3 }}
                 >
-                  Confirmar ({multiSelected.size} selecionado{multiSelected.size > 1 ? "s" : ""})
-                </Button>
-              </div>
+                  <Button
+                    onClick={handleMultiConfirm}
+                    disabled={multiSelected.size === 0}
+                    className={`h-14 px-10 rounded-xl font-bold text-base transition-all duration-300 ${
+                      multiSelected.size > 0
+                        ? "gradient-gold text-primary-foreground shadow-lg shadow-accent/30 animate-pulse-glow hover:scale-[1.02]"
+                        : "bg-white/[0.06] text-white/30 border border-white/[0.08] cursor-not-allowed"
+                    }`}
+                  >
+                    {multiSelected.size > 0
+                      ? `Confirmar (${multiSelected.size} selecionado${multiSelected.size > 1 ? "s" : ""})`
+                      : "Selecione pelo menos 1"}
+                  </Button>
+                </motion.div>
+              </>
+            ) : (
+              <>
+                {/* ── Single-select: Classic vertical list ── */}
+                <div className="space-y-3">
+                  {q.options.map((opt, i) => (
+                    <motion.button
+                      key={opt.value}
+                      initial={{ opacity: 0, y: 12 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: i * 0.06, duration: 0.25 }}
+                      onClick={() => handleSelect(opt.value)}
+                      className={`w-full text-left p-4 sm:p-5 rounded-xl border transition-all duration-200 touch-manipulation outline-none focus-visible:ring-2 focus-visible:ring-accent/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background backdrop-blur-sm group ${
+                        isSelectedOpt(opt.value)
+                          ? "border-accent/60 bg-accent/12 shadow-lg shadow-accent/20 scale-[1.02] ring-1 ring-accent/15"
+                          : "border-white/[0.08] bg-white/[0.03] hover:border-accent/30 hover:bg-white/[0.06] hover:shadow-md hover:shadow-black/20 active:scale-[0.98] active:bg-white/[0.08]"
+                      }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <span
+                          className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 text-xs font-bold transition-all duration-200 ${
+                            isSelectedOpt(opt.value)
+                              ? "border-accent bg-accent text-accent-foreground shadow-md shadow-accent/30"
+                              : "border-muted-foreground/40 text-muted-foreground"
+                          }`}
+                        >
+                          {isSelectedOpt(opt.value) ? <AnimatedCheck /> : String.fromCharCode(65 + i)}
+                        </span>
+                        <span className={`text-sm sm:text-base transition-colors duration-200 ${
+                          isSelectedOpt(opt.value) ? "text-foreground" : "text-foreground/80"
+                        }`}>{opt.label}</span>
+                      </div>
+                    </motion.button>
+                  ))}
+                </div>
+              </>
             )}
           </motion.div>
         </AnimatePresence>

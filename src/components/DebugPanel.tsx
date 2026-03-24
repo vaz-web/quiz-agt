@@ -3,12 +3,12 @@
  * Invisível para o cliente. Permite:
  * - Reiniciar quiz
  * - Pular para qualquer tela
- * - Simular resultado de qualquer perfil
- * - Ver estado atual (stage, respostas, perfil)
+ * - Simular resultado de qualquer perfil + potencial financeiro
+ * - Ver estado atual (stage, respostas, perfil, potencial)
  */
-import { useEffect, useCallback } from "react";
-import { X, RotateCcw, Eye, User, Zap, Shield, Target, Monitor } from "lucide-react";
-import { ProfileType } from "@/data/quizData";
+import { useState, useEffect, useCallback } from "react";
+import { X, RotateCcw, Eye, Zap, Shield, Target, Monitor, DollarSign } from "lucide-react";
+import { ProfileType, FinancialPotential, classifyPotential } from "@/data/quizData";
 
 type Stage = "welcome" | "quiz" | "transition" | "lead" | "processing" | "result";
 
@@ -20,7 +20,7 @@ interface DebugPanelProps {
   answers: Record<number, string>;
   onRestart: () => void;
   onGoToStage: (stage: Stage) => void;
-  onSimulateProfile: (profile: ProfileType) => void;
+  onSimulateProfile: (profile: ProfileType, potential: FinancialPotential) => void;
 }
 
 const stages: { value: Stage; label: string; icon: string }[] = [
@@ -38,6 +38,13 @@ const profileInfo: { value: ProfileType; label: string; color: string; icon: Rea
   { value: 3, label: "Multiplicador", color: "text-red-400 border-red-500/40 bg-red-500/10", icon: <Zap className="h-4 w-4" /> },
 ];
 
+const potentialInfo: { value: FinancialPotential; label: string; color: string }[] = [
+  { value: "baixo", label: "Baixo", color: "text-gray-400 border-gray-500/40 bg-gray-500/10" },
+  { value: "medio", label: "Médio", color: "text-yellow-400 border-yellow-500/40 bg-yellow-500/10" },
+  { value: "alto", label: "Alto", color: "text-green-400 border-green-500/40 bg-green-500/10" },
+  { value: "elite", label: "Elite", color: "text-purple-400 border-purple-500/40 bg-purple-500/10" },
+];
+
 export default function DebugPanel({
   open,
   onClose,
@@ -48,6 +55,9 @@ export default function DebugPanel({
   onGoToStage,
   onSimulateProfile,
 }: DebugPanelProps) {
+  const [selectedProfile, setSelectedProfile] = useState<ProfileType>(1);
+  const [selectedPotential, setSelectedPotential] = useState<FinancialPotential>("medio");
+
   // ESC fecha
   const handleKey = useCallback(
     (e: KeyboardEvent) => {
@@ -64,6 +74,7 @@ export default function DebugPanel({
   if (!open) return null;
 
   const answeredCount = Object.keys(answers).length;
+  const currentPotential = answeredCount > 0 ? classifyPotential(answers) : "—";
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
@@ -95,6 +106,9 @@ export default function DebugPanel({
             </span>
             <span className="text-white/40">
               perfil: <span className="text-[#E02020]">{profile}</span>
+            </span>
+            <span className="text-white/40">
+              potencial: <span className="text-[#E02020]">{currentPotential}</span>
             </span>
             <span className="text-white/40">
               respostas: <span className="text-[#E02020]">{answeredCount}/10</span>
@@ -139,25 +153,56 @@ export default function DebugPanel({
             </div>
           </div>
 
-          {/* Simulate Profile Result */}
+          {/* Simulate Profile + Potential Result */}
           <div>
             <p className="text-[10px] font-semibold text-white/30 uppercase tracking-widest mb-2.5">Simular Resultado</p>
-            <div className="space-y-2">
+
+            {/* Profile selector */}
+            <p className="text-[10px] text-white/50 mb-1.5">Perfil:</p>
+            <div className="grid grid-cols-3 gap-2 mb-3">
               {profileInfo.map((p) => (
                 <button
                   key={p.value}
-                  onClick={() => { onSimulateProfile(p.value); onClose(); }}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border transition-all text-left ${p.color} hover:brightness-125`}
+                  onClick={() => setSelectedProfile(p.value)}
+                  className={`flex flex-col items-center gap-1 px-2 py-2 rounded-xl border transition-all text-center ${
+                    selectedProfile === p.value
+                      ? p.color + " ring-1 ring-white/20"
+                      : "border-white/10 bg-white/[0.02] text-white/60 hover:bg-white/[0.06]"
+                  }`}
                 >
                   {p.icon}
-                  <div className="flex-1">
-                    <span className="text-sm font-semibold">Perfil {p.value}</span>
-                    <p className="text-[10px] opacity-70">{p.label}</p>
-                  </div>
-                  <Eye className="h-3.5 w-3.5 opacity-40" />
+                  <span className="text-[10px] font-medium leading-tight">P{p.value}</span>
                 </button>
               ))}
             </div>
+
+            {/* Potential selector */}
+            <p className="text-[10px] text-white/50 mb-1.5">Potencial Financeiro:</p>
+            <div className="grid grid-cols-4 gap-2 mb-3">
+              {potentialInfo.map((pt) => (
+                <button
+                  key={pt.value}
+                  onClick={() => setSelectedPotential(pt.value)}
+                  className={`flex flex-col items-center gap-1 px-2 py-2 rounded-xl border transition-all text-center ${
+                    selectedPotential === pt.value
+                      ? pt.color + " ring-1 ring-white/20"
+                      : "border-white/10 bg-white/[0.02] text-white/60 hover:bg-white/[0.06]"
+                  }`}
+                >
+                  <DollarSign className="h-3.5 w-3.5" />
+                  <span className="text-[10px] font-medium leading-tight">{pt.label}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* Go button */}
+            <button
+              onClick={() => { onSimulateProfile(selectedProfile, selectedPotential); onClose(); }}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-[#E02020]/40 bg-[#E02020]/10 hover:bg-[#E02020]/20 transition-all text-sm font-semibold text-[#E02020]"
+            >
+              <Eye className="h-4 w-4" />
+              Ver P{selectedProfile} + {selectedPotential.charAt(0).toUpperCase() + selectedPotential.slice(1)}
+            </button>
           </div>
 
           {/* Current Answers (collapsible) */}
